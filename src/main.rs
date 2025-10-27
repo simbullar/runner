@@ -2,5 +2,5 @@ mod search;
 mod window;
 
 fn main() {
-    window::run();
+    window::start_window();
 }
