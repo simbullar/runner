@@ -6,8 +6,8 @@ use objc2::runtime::ProtocolObject;
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSColor, NSFont, NSTextAlignment, NSTextField, NSWindow, NSWindowDelegate,
-    NSWindowStyleMask,
+    NSBackingStoreType, NSColor, NSFloatingWindowLevel, NSFont, NSTextAlignment, NSTextField,
+    NSWindow, NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
@@ -18,6 +18,13 @@ use objc2_foundation::{
 struct AppDelegateIvars {
     window: OnceCell<Retained<NSWindow>>,
 }
+
+/* this was the example code from https://docs.rs/objc2/latest/objc2/
+ * i kinda used it as a starting point :D
+*/
+
+const WIDTH_DEFAULT: u16 = 600;
+const HEIGHT_DEFAULT: u16 = 350;
 
 define_class!(
     // SAFETY:
@@ -38,38 +45,38 @@ define_class!(
         fn did_finish_launching(&self, notification: &NSNotification) {
             let mtm = self.mtm();
 
-            let app = unsafe { notification.object() }
+            let app = notification
+                .object()
                 .unwrap()
                 .downcast::<NSApplication>()
                 .unwrap();
 
-            let text_field = unsafe {
-                let text_field = NSTextField::labelWithString(ns_string!("Hello, World!"), mtm);
-                text_field.setFrame(NSRect::new(
-                    NSPoint::new(5.0, 100.0),
-                    NSSize::new(290.0, 100.0),
-                ));
-                text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
-                    0.0, 0.5, 0.0, 1.0,
-                )));
-                text_field.setAlignment(NSTextAlignment::Center);
-                text_field.setFont(Some(&NSFont::systemFontOfSize(45.0)));
-                text_field.setAutoresizingMask(
-                    NSAutoresizingMaskOptions::ViewWidthSizable
-                        | NSAutoresizingMaskOptions::ViewHeightSizable,
-                );
-                text_field
-            };
+            /* Text field */
+
+            let text_field = NSTextField::labelWithString(ns_string!("Hello, World!"), mtm);
+            text_field.setFrame(NSRect::new(
+                NSPoint::new(5.0, 100.0),
+                NSSize::new(290.0, 100.0),
+            ));
+            text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
+                0.0, 0.5, 0.0, 1.0,
+            )));
+            text_field.setAlignment(NSTextAlignment::Center);
+            text_field.setFont(Some(&NSFont::systemFontOfSize(45.0)));
+            text_field.setAutoresizingMask(
+                NSAutoresizingMaskOptions::ViewWidthSizable
+                    | NSAutoresizingMaskOptions::ViewHeightSizable,
+            );
 
             // SAFETY: We disable releasing when closed below.
             let window = unsafe {
                 NSWindow::initWithContentRect_styleMask_backing_defer(
                     NSWindow::alloc(mtm),
-                    NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(300.0, 300.0)),
-                    NSWindowStyleMask::Titled
-                        | NSWindowStyleMask::Closable
-                        | NSWindowStyleMask::Miniaturizable
-                        | NSWindowStyleMask::Resizable,
+                    NSRect::new(
+                        NSPoint::new(0.0, 0.0),
+                        NSSize::new(WIDTH_DEFAULT as f64, HEIGHT_DEFAULT as f64),
+                    ),
+                    NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
                     NSBackingStoreType::Buffered,
                     false,
                 )
@@ -80,15 +87,17 @@ define_class!(
             unsafe { window.setReleasedWhenClosed(false) };
 
             // Set various window properties.
-            window.setTitle(ns_string!("A window"));
             let view = window.contentView().expect("window must have content view");
-            unsafe { view.addSubview(&text_field) };
+            view.addSubview(&text_field);
             window.center();
-            unsafe { window.setContentMinSize(NSSize::new(300.0, 300.0)) };
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
 
+            unsafe {
+                let _: () = msg_send![&*window, setLevel: NSFloatingWindowLevel];
+            }
+
             // Show the window.
-            window.makeKeyAndOrderFront(None);
+            window.orderFront(None);
 
             // Store the window in the delegate.
             self.ivars().window.set(window).unwrap();
@@ -107,7 +116,7 @@ define_class!(
         #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _notification: &NSNotification) {
             // Quit the application when the window is closed.
-            unsafe { NSApplication::sharedApplication(self.mtm()).terminate(None) };
+            NSApplication::sharedApplication(self.mtm()).terminate(None);
         }
     }
 );
