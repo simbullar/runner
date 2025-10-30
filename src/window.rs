@@ -1,5 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
+use core::alloc;
 use std::cell::OnceCell;
+use std::f64::INFINITY;
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -15,7 +17,7 @@ use objc2_foundation::{
 };
 
 #[derive(Debug, Default)]
-struct AppDelegateIvars {
+pub struct AppDelegateIvars {
     window: OnceCell<Retained<NSWindow>>,
 }
 
@@ -25,6 +27,7 @@ struct AppDelegateIvars {
 
 const WIDTH_DEFAULT: u16 = 600;
 const HEIGHT_DEFAULT: u16 = 350;
+const INPUT_HEIGHT: u16 = 60;
 
 define_class!(
     // SAFETY:
@@ -33,7 +36,7 @@ define_class!(
     #[unsafe(super = NSObject)]
     #[thread_kind = MainThreadOnly]
     #[ivars = AppDelegateIvars]
-    struct Delegate;
+    pub struct Delegate;
 
     // SAFETY: `NSObjectProtocol` has no safety requirements.
     unsafe impl NSObjectProtocol for Delegate {}
@@ -51,18 +54,18 @@ define_class!(
                 .downcast::<NSApplication>()
                 .unwrap();
 
-            /* Text field */
+            /* UI */
 
-            let text_field = NSTextField::labelWithString(ns_string!("Hello, World!"), mtm);
+            let text_field = NSTextField::init(NSTextField::alloc(mtm));
             text_field.setFrame(NSRect::new(
-                NSPoint::new(5.0, 100.0),
-                NSSize::new(290.0, 100.0),
+                NSPoint::new(0.0, HEIGHT_DEFAULT as f64 - INPUT_HEIGHT as f64),
+                NSSize::new(WIDTH_DEFAULT as f64, INPUT_HEIGHT as f64),
             ));
             text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
-                0.0, 0.5, 0.0, 1.0,
+                1.0, 1.0, 1.0, 1.0,
             )));
             text_field.setAlignment(NSTextAlignment::Center);
-            text_field.setFont(Some(&NSFont::systemFontOfSize(45.0)));
+            text_field.setFont(Some(&NSFont::systemFontOfSize(40.0)));
             text_field.setAutoresizingMask(
                 NSAutoresizingMaskOptions::ViewWidthSizable
                     | NSAutoresizingMaskOptions::ViewHeightSizable,
@@ -81,6 +84,11 @@ define_class!(
                     false,
                 )
             };
+
+            window.setOpaque(false);
+            window.setLevel(NSFloatingWindowLevel);
+            window.setHasShadow(true);
+
             // SAFETY: Disable auto-release when closing windows.
             // This is required when creating `NSWindow` outside a window
             // controller.
@@ -91,10 +99,6 @@ define_class!(
             view.addSubview(&text_field);
             window.center();
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
-
-            unsafe {
-                let _: () = msg_send![&*window, setLevel: NSFloatingWindowLevel];
-            }
 
             // Show the window.
             window.orderFront(None);
@@ -122,19 +126,9 @@ define_class!(
 );
 
 impl Delegate {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+    pub fn new(mtm: MainThreadMarker) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(AppDelegateIvars::default());
         // SAFETY: The signature of `NSObject`'s `init` method is correct.
         unsafe { msg_send![super(this), init] }
     }
-}
-
-pub fn start_window() {
-    let mtm = MainThreadMarker::new().unwrap();
-
-    let app = NSApplication::sharedApplication(mtm);
-    let delegate = Delegate::new(mtm);
-    app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
-
-    app.run();
 }
