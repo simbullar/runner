@@ -28,6 +28,7 @@ pub struct AppDelegateIvars {
 const WIDTH_DEFAULT: u16 = 600;
 const HEIGHT_DEFAULT: u16 = 350;
 const INPUT_HEIGHT: u16 = 60;
+const WIN_CORNER_RAD: u8 = 12;
 
 define_class!(
     // SAFETY:
@@ -88,6 +89,7 @@ define_class!(
             window.setOpaque(false);
             window.setLevel(NSFloatingWindowLevel);
             window.setHasShadow(true);
+            window.setBackgroundColor(Some(&NSColor::clearColor()));
 
             // SAFETY: Disable auto-release when closing windows.
             // This is required when creating `NSWindow` outside a window
@@ -96,6 +98,14 @@ define_class!(
 
             // Set various window properties.
             let view = window.contentView().expect("window must have content view");
+            view.setWantsLayer(true);
+
+            if let Some(layer) = view.layer() {
+                layer.setCornerRadius(WIN_CORNER_RAD as f64);
+                layer.setMasksToBounds(true);
+                layer.setBackgroundColor(Some(&NSColor::windowBackgroundColor().CGColor()));
+            }
+
             view.addSubview(&text_field);
             window.center();
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
