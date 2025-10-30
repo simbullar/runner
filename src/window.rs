@@ -8,12 +8,12 @@ use objc2::runtime::ProtocolObject;
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSColor, NSFloatingWindowLevel, NSFont, NSTextAlignment, NSTextField,
-    NSWindow, NSWindowDelegate, NSWindowStyleMask,
+    NSBackingStoreType, NSColor, NSFloatingWindowLevel, NSFont, NSLineBreakStrategy,
+    NSTextAlignment, NSTextField, NSTextView, NSWindow, NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
-    ns_string,
+    NSString, ns_string,
 };
 
 #[derive(Debug, Default)]
@@ -27,9 +27,59 @@ pub struct AppDelegateIvars {
 
 const WIDTH_DEFAULT: u16 = 600;
 const HEIGHT_DEFAULT: u16 = 350;
-const INPUT_HEIGHT: u16 = 60;
+const INPUT_HEIGHT: u16 = 25;
 const WIN_CORNER_RAD: u8 = 12;
+const SHADOW: bool = true;
+const INPUT_ALIGNMENT: NSTextAlignment = NSTextAlignment::Center;
+const INPUT_FONT_SIZE: f64 = 20.0;
+const INPUT_FONT_COLOR: [f64; 4] = [1.0, 1.0, 1.0, 1.0];
 
+/* -------  UI  ------ */
+/* text field */
+fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
+    let text_field = NSTextField::initWithFrame(
+        NSTextField::alloc(mtm),
+        NSRect::new(
+            NSPoint::new(0.0, HEIGHT_DEFAULT as f64 - INPUT_HEIGHT as f64),
+            NSSize::new(WIDTH_DEFAULT as f64, INPUT_HEIGHT as f64),
+        ),
+    );
+    let [r, g, b, a] = INPUT_FONT_COLOR;
+    text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
+        r, g, b, a,
+    )));
+    text_field.setAlignment(INPUT_ALIGNMENT);
+    text_field.setFont(Some(&NSFont::systemFontOfSize(INPUT_FONT_SIZE)));
+    text_field.setEditable(true);
+    text_field.setSelectable(true);
+    text_field.setMaximumNumberOfLines(1);
+    text_field.acceptsFirstResponder();
+
+    text_field.setPlaceholderString(Some(&NSString::from_str("\nSearch...")));
+
+    /*text_field.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable
+            | NSAutoresizingMaskOptions::ViewHeightSizable,
+    ); Commenting this out for now, might add this later on */
+
+    text_field
+}
+
+define_class!(
+    #[unsafe(super = NSWindow)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = AppDelegateIvars]
+    pub struct RunnerWindow;
+
+    unsafe impl NSObjectProtocol for RunnerWindow {}
+
+    impl RunnerWindow {
+        #[unsafe(method(canBecomeKey))]
+        fn can_become_key(&self) -> bool {
+            true
+        }
+    }
+);
 define_class!(
     // SAFETY:
     // - The superclass NSObject does not have any subclassing requirements.
@@ -57,20 +107,7 @@ define_class!(
 
             /* UI */
 
-            let text_field = NSTextField::init(NSTextField::alloc(mtm));
-            text_field.setFrame(NSRect::new(
-                NSPoint::new(0.0, HEIGHT_DEFAULT as f64 - INPUT_HEIGHT as f64),
-                NSSize::new(WIDTH_DEFAULT as f64, INPUT_HEIGHT as f64),
-            ));
-            text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
-                1.0, 1.0, 1.0, 1.0,
-            )));
-            text_field.setAlignment(NSTextAlignment::Center);
-            text_field.setFont(Some(&NSFont::systemFontOfSize(40.0)));
-            text_field.setAutoresizingMask(
-                NSAutoresizingMaskOptions::ViewWidthSizable
-                    | NSAutoresizingMaskOptions::ViewHeightSizable,
-            );
+            let text_field = text_field(mtm);
 
             // SAFETY: We disable releasing when closed below.
             let window = unsafe {
@@ -88,8 +125,8 @@ define_class!(
 
             window.setOpaque(false);
             window.setLevel(NSFloatingWindowLevel);
-            window.setHasShadow(true);
             window.setBackgroundColor(Some(&NSColor::clearColor()));
+            window.setHasShadow(SHADOW);
 
             // SAFETY: Disable auto-release when closing windows.
             // This is required when creating `NSWindow` outside a window
