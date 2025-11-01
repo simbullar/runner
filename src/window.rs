@@ -5,7 +5,7 @@ use std::f64::INFINITY;
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
+use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
     NSBackingStoreType, NSColor, NSFloatingWindowLevel, NSFont, NSLineBreakStrategy,
@@ -25,14 +25,17 @@ pub struct AppDelegateIvars {
  * i kinda used it as a starting point :D
 */
 
+/* Settings, will replace with a normal interface later on */
 const WIDTH_DEFAULT: u16 = 600;
 const HEIGHT_DEFAULT: u16 = 350;
-const INPUT_HEIGHT: u16 = 25;
+const INPUT_HEIGHT: u16 = 40;
 const WIN_CORNER_RAD: u8 = 12;
 const SHADOW: bool = true;
 const INPUT_ALIGNMENT: NSTextAlignment = NSTextAlignment::Center;
 const INPUT_FONT_SIZE: f64 = 20.0;
 const INPUT_FONT_COLOR: [f64; 4] = [1.0, 1.0, 1.0, 1.0];
+const INPUT_BACKGROUND_COLOR: [f64; 4] = [0.2, 0.2, 0.2, 1.0];
+const BACKGROUND_COLOR: [f64; 4] = [0.1, 0.1, 0.1, 1.0];
 
 /* -------  UI  ------ */
 /* text field */
@@ -45,6 +48,7 @@ fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
         ),
     );
     let [r, g, b, a] = INPUT_FONT_COLOR;
+
     text_field.setTextColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
         r, g, b, a,
     )));
@@ -54,6 +58,12 @@ fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
     text_field.setSelectable(true);
     text_field.setMaximumNumberOfLines(1);
     text_field.acceptsFirstResponder();
+
+    let [r, g, b, a] = INPUT_BACKGROUND_COLOR;
+
+    text_field.setBackgroundColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
+        r, g, b, a,
+    )));
 
     text_field.setPlaceholderString(Some(&NSString::from_str("\nSearch...")));
 
@@ -110,17 +120,21 @@ define_class!(
             let text_field = text_field(mtm);
 
             // SAFETY: We disable releasing when closed below.
-            let window = unsafe {
-                NSWindow::initWithContentRect_styleMask_backing_defer(
-                    NSWindow::alloc(mtm),
-                    NSRect::new(
-                        NSPoint::new(0.0, 0.0),
-                        NSSize::new(WIDTH_DEFAULT as f64, HEIGHT_DEFAULT as f64),
-                    ),
-                    NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
-                    NSBackingStoreType::Buffered,
-                    false,
-                )
+            let rect = NSRect::new(
+                NSPoint::new(0.0, 0.0),
+                NSSize::new(WIDTH_DEFAULT as f64, HEIGHT_DEFAULT as f64),
+            );
+            let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
+            let backing = NSBackingStoreType::Buffered;
+            let defer = false;
+
+            let window: Retained<RunnerWindow> = unsafe {
+                let alloc = RunnerWindow::alloc(mtm);
+                // Call the initializer on the allocated object itself — not via `super(...)`.
+                msg_send![alloc, initWithContentRect: rect
+                                  styleMask: style
+                                    backing: backing
+                                      defer: defer]
             };
 
             window.setOpaque(false);
@@ -137,10 +151,14 @@ define_class!(
             let view = window.contentView().expect("window must have content view");
             view.setWantsLayer(true);
 
+            let [r, g, b, a] = BACKGROUND_COLOR;
+
             if let Some(layer) = view.layer() {
                 layer.setCornerRadius(WIN_CORNER_RAD as f64);
                 layer.setMasksToBounds(true);
-                layer.setBackgroundColor(Some(&NSColor::windowBackgroundColor().CGColor()));
+                layer.setBackgroundColor(Some(
+                    &NSColor::colorWithSRGBRed_green_blue_alpha(r, g, b, a).CGColor(),
+                ));
             }
 
             view.addSubview(&text_field);
@@ -151,7 +169,7 @@ define_class!(
             window.orderFront(None);
 
             // Store the window in the delegate.
-            self.ivars().window.set(window).unwrap();
+            self.ivars().window.set(window.into_super()).unwrap();
 
             app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
 
