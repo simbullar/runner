@@ -36,15 +36,22 @@ const INPUT_FONT_SIZE: f64 = 20.0;
 const INPUT_FONT_COLOR: [f64; 4] = [1.0, 1.0, 1.0, 1.0];
 const INPUT_BACKGROUND_COLOR: [f64; 4] = [0.2, 0.2, 0.2, 1.0];
 const BACKGROUND_COLOR: [f64; 4] = [0.1, 0.1, 0.1, 1.0];
+const PADDING_TOP_INPUT: f64 = 10.0;
+const PADDING_SIDES_INPUT: f64 = 15.0;
 
-/* -------  UI  ------ */
 /* text field */
 fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
     let text_field = NSTextField::initWithFrame(
         NSTextField::alloc(mtm),
         NSRect::new(
-            NSPoint::new(0.0, HEIGHT_DEFAULT as f64 - INPUT_HEIGHT as f64),
-            NSSize::new(WIDTH_DEFAULT as f64, INPUT_HEIGHT as f64),
+            NSPoint::new(
+                PADDING_SIDES_INPUT,
+                HEIGHT_DEFAULT as f64 - INPUT_HEIGHT as f64 - PADDING_TOP_INPUT,
+            ),
+            NSSize::new(
+                WIDTH_DEFAULT as f64 - 2.0 * PADDING_SIDES_INPUT,
+                INPUT_HEIGHT as f64,
+            ),
         ),
     );
     let [r, g, b, a] = INPUT_FONT_COLOR;
@@ -65,7 +72,7 @@ fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
         r, g, b, a,
     )));
 
-    text_field.setPlaceholderString(Some(&NSString::from_str("\nSearch...")));
+    text_field.setPlaceholderString(Some(&NSString::from_str("Search...")));
 
     /*text_field.setAutoresizingMask(
         NSAutoresizingMaskOptions::ViewWidthSizable
@@ -84,8 +91,13 @@ define_class!(
     unsafe impl NSObjectProtocol for RunnerWindow {}
 
     impl RunnerWindow {
-        #[unsafe(method(canBecomeKey))]
+        #[unsafe(method(canBecomeKeyWindow))]
         fn can_become_key(&self) -> bool {
+            true
+        }
+
+        #[unsafe(method(canBecomeMainWindow))]
+        fn can_become_main_window(&self) -> bool {
             true
         }
     }
