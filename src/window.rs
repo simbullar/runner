@@ -36,8 +36,8 @@ const INPUT_FONT_SIZE: f64 = 20.0;
 const INPUT_FONT_COLOR: [f64; 4] = [1.0, 1.0, 1.0, 1.0];
 const INPUT_BACKGROUND_COLOR: [f64; 4] = [0.2, 0.2, 0.2, 1.0];
 const BACKGROUND_COLOR: [f64; 4] = [0.1, 0.1, 0.1, 1.0];
-const PADDING_TOP_INPUT: f64 = 10.0;
-const PADDING_SIDES_INPUT: f64 = 15.0;
+const PADDING_TOP_INPUT: f64 = 15.0;
+const PADDING_SIDES_INPUT: f64 = 40.0;
 
 /* text field */
 fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
@@ -63,8 +63,13 @@ fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
     text_field.setFont(Some(&NSFont::systemFontOfSize(INPUT_FONT_SIZE)));
     text_field.setEditable(true);
     text_field.setSelectable(true);
-    text_field.setMaximumNumberOfLines(1);
+    text_field.setMaximumNumberOfLines(0);
     text_field.acceptsFirstResponder();
+
+    text_field.setBezeled(false);
+    text_field.setBordered(false);
+
+    text_field.setFocusRingType(objc2_app_kit::NSFocusRingType::None);
 
     let [r, g, b, a] = INPUT_BACKGROUND_COLOR;
 
@@ -73,11 +78,6 @@ fn text_field(mtm: MainThreadMarker) -> Retained<NSTextField> {
     )));
 
     text_field.setPlaceholderString(Some(&NSString::from_str("Search...")));
-
-    /*text_field.setAutoresizingMask(
-        NSAutoresizingMaskOptions::ViewWidthSizable
-            | NSAutoresizingMaskOptions::ViewHeightSizable,
-    ); Commenting this out for now, might add this later on */
 
     text_field
 }
@@ -176,6 +176,8 @@ define_class!(
             view.addSubview(&text_field);
             window.center();
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
+
+            window.makeFirstResponder(Some(&text_field));
 
             // Show the window.
             window.orderFront(None);
