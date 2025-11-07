@@ -9,7 +9,7 @@ fn app_support_path() -> String {
         );
         let path = paths.firstObject().unwrap();
         let path_str = path.to_string();
-        format!("{}/runner/", path_str)
+        format!("{}/projectname/", path_str)
     }
 }
 fn check_for_appsupport_dir(path: String) -> String {
