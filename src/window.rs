@@ -1,19 +1,16 @@
 #![deny(unsafe_op_in_unsafe_fn)]
-use core::alloc;
 use std::cell::OnceCell;
-use std::f64::INFINITY;
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
+use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSColor, NSFloatingWindowLevel, NSFont, NSLineBreakStrategy,
-    NSTextAlignment, NSTextField, NSTextView, NSWindow, NSWindowDelegate, NSWindowStyleMask,
+    NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType,
+    NSColor, NSFloatingWindowLevel, NSFont, NSTextAlignment, NSTextField, NSWindow,
+    NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
-    NSString, ns_string,
+    MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
 
 #[derive(Debug, Default)]
@@ -29,8 +26,8 @@ pub struct AppDelegateIvars {
 const WIDTH_DEFAULT: u16 = 600;
 const HEIGHT_DEFAULT: u16 = 350;
 const INPUT_HEIGHT: u16 = 40;
-const WIN_CORNER_RAD: u8 = 12;
-const SHADOW: bool = true;
+const WIN_CORNER_RAD: u8 = 4;
+const SHADOW: bool = false;
 const INPUT_ALIGNMENT: NSTextAlignment = NSTextAlignment::Center;
 const INPUT_FONT_SIZE: f64 = 20.0;
 const INPUT_FONT_COLOR: [f64; 4] = [1.0, 1.0, 1.0, 1.0];
@@ -143,9 +140,9 @@ define_class!(
             let window: Retained<RunnerWindow> = unsafe {
                 let alloc = RunnerWindow::alloc(mtm);
                 // Call the initializer on the allocated object itself — not via `super(...)`.
-                msg_send![alloc, initWithContentRect: rect
-                                  styleMask: style
-                                    backing: backing
+                msg_send![alloc, initWithContentRect: rect,
+                                  styleMask: style,
+                                    backing: backing,
                                       defer: defer]
             };
 
@@ -209,5 +206,14 @@ impl Delegate {
         let this = Self::alloc(mtm).set_ivars(AppDelegateIvars::default());
         // SAFETY: The signature of `NSObject`'s `init` method is correct.
         unsafe { msg_send![super(this), init] }
+    }
+    pub fn toggle_window_visibility(&self) {
+        if let Some(window) = self.ivars().window.get() {
+            if window.isVisible() {
+                window.orderOut(None);
+            } else {
+                window.makeKeyAndOrderFront(None);
+            }
+        }
     }
 }
