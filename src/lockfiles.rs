@@ -1,4 +1,4 @@
-/* This is some more or less good boilerplate for my future projects, it's just not used in this project. This is logic for lockfiles */
+/* This is some more or less good boilerplate for my future projects, so i decided to put this here, for ease of finding and using. This is logic for lockfiles */
 
 fn app_support_path() -> String {
     unsafe {
@@ -9,26 +9,36 @@ fn app_support_path() -> String {
         );
         let path = paths.firstObject().unwrap();
         let path_str = path.to_string();
-        format!("{}/projectname/", path_str)
+        let bundlename = "runner";
+        format!("{}/{}/", path_str, bundlename)
     }
 }
 fn check_for_appsupport_dir(path: String) -> String {
-    let file_path = format!("{}/lock.lock", path);
+    let file_path = format!("{}/lockfile.lock", path);
     if !Path::new(path.as_str()).exists() {
-        let _ = fs::create_dir(&path); // Create the application directory if it doesn't exist
-        let _ = fs::File::create(&file_path); // using create_new isn't necessarry, as if the file already exists right after creating the directory, the user might have other, more interesting problems...
+        let _ = create_dir(&path); // Create the application directory if it doesn't exist
     }
     file_path
 }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let app_path = app_support_path();
+    let lock_path = check_for_appsupport_dir(app_path);
 
-fn lock(as_path: String) -> Result<(), Box<dyn std::error::Error>> {
-    let lock_path = check_for_appsupport_dir(as_path);
-    let mut f = RwLock::new(File::open(lock_path)?);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&lock_path)?;
+    let mut f = RwLock::new(file);
 
-    let result = f.try_write();
-    match result {
-        Ok(_i) => (),
-        Err(_e) => {}
-    }
-    Ok(())
+    let guard = match f.try_write() {
+        Ok(guard) => {
+            println!("First process...");
+            guard // keep it alive
+        }
+        Err(_) => {
+            println!("Second process...");
+            std::process::exit(0); // exit immediately
+        }
+    };
 }
